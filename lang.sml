@@ -50,8 +50,8 @@ datatype asmInstr =
     | BNE of (register * register * int)
     | DIV of (register * register)
     | DIVU of (register * register)
-    | J of int
-    | JAL of int
+    | J of string
+    | JAL of string
     | JR of register
     | LB of (register * int * register)
     | LUI of (register * int)
@@ -78,7 +78,8 @@ datatype asmInstr =
     | SW of (register * int * register)
     | SYSCALL
     | XOR of (register * register * register)
-    | XORI of (register * register * int);
+    | XORI of (register * register * int)
+    | LABEL of string;
 
 fun convertRegisterToString(ZERO : register) = "$zero" 
     | convertRegisterToString(AT : register) = "$at"
@@ -129,8 +130,8 @@ fun convertInstructionToString(ADD(out, in1, in2)) = "add " ^ convertRegisterToS
   | convertInstructionToString(BNE(in1, in2, offset)) = "bne " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ ", " ^ Int.toString(offset) ^ "\r\n"
   | convertInstructionToString(DIV(in1, in2)) = "div " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
   | convertInstructionToString(DIVU(in1, in2)) = "divu " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
-  | convertInstructionToString(J(offset)) = "j " ^ Int.toString(offset) ^ "\r\n"
-  | convertInstructionToString(JAL(offset)) = "jal " ^ Int.toString(offset) ^ "\r\n"
+  | convertInstructionToString(J(target)) = "j " ^ target ^ "\r\n"
+  | convertInstructionToString(JAL(target)) = "jal " ^ target ^ "\r\n"
   | convertInstructionToString(JR(target)) = "jr " ^ convertRegisterToString(target) ^ "\r\n"
   | convertInstructionToString(LB(out, offset, target)) = "lb " ^ convertRegisterToString(out) ^ ", " ^ Int.toString(offset) ^ "(" ^ convertRegisterToString(target) ^ ")" ^ "\r\n"
   | convertInstructionToString(LUI(out, imm)) = "lui " ^ convertRegisterToString(out) ^ ", " ^ Int.toString(imm) ^ "\r\n"
@@ -157,10 +158,203 @@ fun convertInstructionToString(ADD(out, in1, in2)) = "add " ^ convertRegisterToS
   | convertInstructionToString(SW(in1, offset, target)) = "sw " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(offset) ^ "(" ^ convertRegisterToString(target) ^ ")" ^ "\r\n"
   | convertInstructionToString(SYSCALL) = "syscall" ^ "\r\n"
   | convertInstructionToString(XOR(out, in1, in2)) = "xor " ^ convertRegisterToString(out) ^ ", " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
-  | convertInstructionToString(XORI(out, in1, imm)) = "xori " ^ convertRegisterToString(out) ^ ", " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(imm) ^ "\r\n";
+  | convertInstructionToString(XORI(out, in1, imm)) = "xori " ^ convertRegisterToString(out) ^ ", " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(imm) ^ "\r\n"
+  | convertInstructionToString(LABEL(str)) = str ^ ":" ^ "\r\n";
+
+
+datatype expression = 
+      INTEGER_EXP of int
+    | ADD_EXP of expression * expression
+    | SUB_EXP of expression * expression
+    | MUL_EXP of expression * expression
+    | MOD_EXP of expression * expression
+    | DIV_EXP of expression * expression
+    | NOT_EXP of expression
+    | AND_EXP of expression * expression
+    | OR_EXP of expression * expression
+    | XOR_EXP of expression * expression
+    | LEQ_EXP of expression * expression
+    | GEQ_EXP of expression * expression
+    | NEQ_EXP of expression * expression
+    | EQ_EXP of expression * expression
+    | LT_EXP of expression * expression
+    | GT_EXP of expression * expression
+    | TO_BOOL_EXP of expression
+    | CALL_EXP of string * expression list;
+
+datatype statement =
+      EMPTY_STATEMENT
+    | WHILE_STATEMENT of expression * statement
+    | IF_STATEMENT of expression * statement * statement
+    | SEQUENCE_STATEMENT of statement list
+    | RETURN_STATEMENT of expression
+    | ASSIGNMENT_STATEMENT of string * expression
+    | FUNCTION of string * string list * statement;
+
+
+fun compileE(INTEGER_EXP(value), env) = ([ADDI(SP, SP, ~4), ADDI(T0, ZERO, value), SW(T0, 0, SP)], env)
+  | compileE(ADD_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), ADD(T0, T0, T1), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(SUB_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), SUB(T0, T0, T1), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(MUL_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), MULT(T0, T1), MFLO(T0), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(MOD_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), DIV(T0, T1), MFHI(T0), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(DIV_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), DIV(T0, T1), MFLO(T0), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(NOT_EXP(exp), env) = let
+                                      val (res1, env1) = compileE(exp,env)
+                                  in
+                                     (res1@[LW(T0, 0, SP), XORI(T0, T0, 1), SW(T0, 0, SP)], env1)
+                                  end
+  | compileE(AND_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), AND(T0, T0, T1), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(OR_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), OR(T0, T0, T1), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(XOR_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), XOR(T0, T0, T1), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(LEQ_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), SLT(T4, T0, T1), SLT(T2, T0, T1), SLT(T3, T1, T0), XOR(T0, T2, T3), XORI(T0, T0, 1), OR(T0, T0, T4), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(GEQ_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), SLT(T0, T1, T0), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(NEQ_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                        in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), SLT(T2, T0, T1), SLT(T3, T1, T0), XOR(T0, T2, T3), SW(T0, 0, SP)], env2)
+                                        end
+  | compileE(EQ_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                        in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), SLT(T2, T0, T1), SLT(T3, T1, T0), XOR(T0, T2, T3), XORI(T0, T0, 1), SW(T0, 0, SP)], env2)
+                                        end
+  | compileE(LT_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), SLT(T0, T0, T1), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(GT_EXP(exp1, exp2), env) = let
+                                            val (res1, env1) = compileE(exp1,env)
+                                            val (res2, env2) = compileE(exp2,env1)
+                                         in
+                                            (res2@res1@[LW(T0, 0, SP), LW(T1, 4, SP), ADDI(SP, SP, 4), SLT(T4, T0, T1), SLT(T2, T0, T1), SLT(T3, T1, T0), XOR(T0, T2, T3), XORI(T0, T0, 1), OR(T0, T0, T4), XORI(T0, T0, 1), SW(T0, 0, SP)], env2)
+                                         end
+  | compileE(TO_BOOL_EXP(exp), env) = compileE(NEQ_EXP(exp, INTEGER_EXP(0)), env)
+  | compileE(CALL_EXP(id, args), env) =
+        let 
+            fun handleArgs(args, env) = 
+                let 
+                    fun createArgList(nil, env) = (nil, env)
+                      | createArgList(h::t, env) = let
+                                                       val (res1, env1) = compileE(h, env)
+                                                       val (res2, env2) = createArgList(t, env1)
+                                                   in
+                                                       (res1@[LW(T0, 0, SP), ADDI(SP, SP, 4), ADD(A0, ZERO, T0)]@res2, env2)
+                                                   end
+                    fun pushArgsToStack(nil) = nil
+                      | pushArgsToStack(h::t) = [ADDI(SP, SP, ~4), SW(T0, 0, SP)]
+                in
+                    if (List.length(args) > 4) then
+                        let 
+                            val (res1, env1) = createArgList(List.take(args, 4), env)
+                        in
+                            (res1 @ [ADDI(SP, SP, ~16)] @ pushArgsToStack(List.drop(args, 4)), env1)
+                        end
+                    else
+                        createArgList(args, env)
+                end
+            val (resRes, envRes) = handleArgs(args, env)
+        in
+            (JAL(id)::resRes, envRes)
+        end;
+
+fun compileS(EMPTY_STATEMENT) = [NOOP]
+  | compileS(WHILE_STATEMENT(expression, statement)) = [NOOP]
+  | compileS(IF_STATEMENT(expression, statement1, statement2)) = [NOOP]
+  | compileS(SEQUENCE_STATEMENT(statementList)) = [NOOP]
+  | compileS(RETURN_STATEMENT(expression)) = [NOOP]
+  | compileS(ASSIGNMENT_STATEMENT(id, expression)) = [NOOP]
+  | compileS(FUNCTION(id, args, statement)) = [LABEL(id)];
+
+
+
+
+
+
+
+(*)
+main:
+put on stackframe
+do statement instruction here
+
+
+setup stackframe
+do statement
+RETURN_STATEMENT*)
+
+
 
 Control.Print.printDepth := 100000;
 Control.Print.printLength := 10000;
 Control.Print.stringDepth := 10000;
 
 print (convertInstructionToString(ADD(S1, ZERO, S7)));
+val test1 = FUNCTION("main", ["as"], RETURN_STATEMENT(CALL_EXP("main", [INTEGER_EXP(1)])));
+compileS(test1);
+
+
+
+
+
+val testExp = MUL_EXP(MUL_EXP(ADD_EXP(INTEGER_EXP(10), ADD_EXP(INTEGER_EXP(1), ADD_EXP(INTEGER_EXP(100), ADD_EXP(INTEGER_EXP(2), INTEGER_EXP(3))))), ADD_EXP(INTEGER_EXP(5), INTEGER_EXP(8))), INTEGER_EXP(7));
+
+val adderExp = XOR_EXP(XOR_EXP(INTEGER_EXP(1), INTEGER_EXP(1)), INTEGER_EXP(0));
+
+val (x,_) = compileE(adderExp, 0);
+print (concat (map convertInstructionToString (x)));
+
+
+
