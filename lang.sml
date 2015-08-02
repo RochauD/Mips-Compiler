@@ -41,13 +41,13 @@ datatype asmInstr =
     | ADDU of (register * register * register)
     | AND of (register * register * register)
     | ANDI of (register * register * int)
-    | BEQ of (register * register * int)
-    | BGEZ of (register * int)
-    | BGEZAL of (register * int)
-    | BLEZ of (register * int)
-    | BLTZ of (register * int)
-    | BLTZAL of (register * int)
-    | BNE of (register * register * int)
+    | BEQ of (register * register * string)
+    | BGEZ of (register * string)
+    | BGEZAL of (register * string)
+    | BLEZ of (register * string)
+    | BLTZ of (register * string)
+    | BLTZAL of (register * string)
+    | BNE of (register * register * string)
     | DIV of (register * register)
     | DIVU of (register * register)
     | J of string
@@ -121,13 +121,13 @@ fun convertInstructionToString(ADD(out, in1, in2)) = "add " ^ convertRegisterToS
   | convertInstructionToString(ADDU(out, in1, in2)) = "addu " ^ convertRegisterToString(out) ^ ", " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
   | convertInstructionToString(AND(out, in1, in2)) = "and " ^ convertRegisterToString(out) ^ ", " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
   | convertInstructionToString(ANDI(out, in1, imm)) = "andi " ^ convertRegisterToString(out) ^ ", " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(imm) ^ "\r\n"
-  | convertInstructionToString(BEQ(in1, in2, offset)) = "beq " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ ", " ^ Int.toString(offset) ^ "\r\n"
-  | convertInstructionToString(BGEZ(in1, offset)) = "bgez " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(offset) ^ "\r\n"
-  | convertInstructionToString(BGEZAL(in1, offset)) = "bgezal " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(offset) ^ "\r\n"
-  | convertInstructionToString(BLEZ(in1, offset)) = "blez " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(offset) ^ "\r\n"
-  | convertInstructionToString(BLTZ(in1, offset)) = "bltz " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(offset) ^ "\r\n"
-  | convertInstructionToString(BLTZAL(in1, offset)) = "bltzal " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(offset) ^ "\r\n"
-  | convertInstructionToString(BNE(in1, in2, offset)) = "bne " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ ", " ^ Int.toString(offset) ^ "\r\n"
+  | convertInstructionToString(BEQ(in1, in2, offset)) = "beq " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ ", " ^ offset ^ "\r\n"
+  | convertInstructionToString(BGEZ(in1, offset)) = "bgez " ^ convertRegisterToString(in1) ^ ", " ^ offset ^ "\r\n"
+  | convertInstructionToString(BGEZAL(in1, offset)) = "bgezal " ^ convertRegisterToString(in1) ^ ", " ^ offset ^ "\r\n"
+  | convertInstructionToString(BLEZ(in1, offset)) = "blez " ^ convertRegisterToString(in1) ^ ", " ^ offset ^ "\r\n"
+  | convertInstructionToString(BLTZ(in1, offset)) = "bltz " ^ convertRegisterToString(in1) ^ ", " ^ offset ^ "\r\n"
+  | convertInstructionToString(BLTZAL(in1, offset)) = "bltzal " ^ convertRegisterToString(in1) ^ ", " ^ offset ^ "\r\n"
+  | convertInstructionToString(BNE(in1, in2, offset)) = "bne " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ ", " ^ offset ^ "\r\n"
   | convertInstructionToString(DIV(in1, in2)) = "div " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
   | convertInstructionToString(DIVU(in1, in2)) = "divu " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
   | convertInstructionToString(J(target)) = "j " ^ target ^ "\r\n"
@@ -140,7 +140,7 @@ fun convertInstructionToString(ADD(out, in1, in2)) = "add " ^ convertRegisterToS
   | convertInstructionToString(MFLO(out)) = "mflo " ^ convertRegisterToString(out) ^ "\r\n"
   | convertInstructionToString(MULT(in1, in2)) = "mult " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
   | convertInstructionToString(MULTU(in1, in2)) = "multu " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
-  | convertInstructionToString(NOOP) = "noop" ^ "\r\n"
+  | convertInstructionToString(NOOP) = "sll $0, $0, 0" ^ "\r\n"
   | convertInstructionToString(OR(out, in1, in2)) = "or " ^ convertRegisterToString(out) ^ ", " ^ convertRegisterToString(in1) ^ ", " ^ convertRegisterToString(in2) ^ "\r\n"
   | convertInstructionToString(ORI(out, in1, imm)) = "ori " ^ convertRegisterToString(out) ^ ", " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(imm) ^ "\r\n"
   | convertInstructionToString(SB(in1, offset, target)) = "sb " ^ convertRegisterToString(in1) ^ ", " ^ Int.toString(offset) ^ "(" ^ convertRegisterToString(target) ^ ")" ^ "\r\n"
@@ -180,16 +180,17 @@ datatype expression =
     | LT_EXP of expression * expression
     | GT_EXP of expression * expression
     | TO_BOOL_EXP of expression
-    | CALL_EXP of string * expression list;
+    | CALL_EXP of string * expression list
+    | VAR_EXP of expression;
 
 datatype statement =
-      EMPTY_STATEMENT
-    | WHILE_STATEMENT of expression * statement
-    | IF_STATEMENT of expression * statement * statement
-    | SEQUENCE_STATEMENT of statement list
+      IF_STATEMENT of expression * statement * statement
     | RETURN_STATEMENT of expression
-    | ASSIGNMENT_STATEMENT of string * expression
-    | FUNCTION of string * string list * statement;
+    | PRINT_STATEMENT of expression
+    | FUNCTION of string * statement
+    | PROGRAM of statement list
+    | SET_STATEMENT of expression
+    | HALT_STATEMENT;
 
 
 fun compileE(INTEGER_EXP(value), env) = ([ADDI(SP, SP, ~4), ADDI(T0, ZERO, value), SW(T0, 0, SP)], env)
@@ -287,53 +288,107 @@ fun compileE(INTEGER_EXP(value), env) = ([ADDI(SP, SP, ~4), ADDI(T0, ZERO, value
         let 
             fun handleArgs(args, env) = 
                 let 
-                    fun createArgList(nil, env) = (nil, env)
-                      | createArgList(h::t, env) = let
-                                                       val (res1, env1) = compileE(h, env)
-                                                       val (res2, env2) = createArgList(t, env1)
-                                                   in
-                                                       (res1@[LW(T0, 0, SP), ADDI(SP, SP, 4), ADD(A0, ZERO, T0)]@res2, env2)
-                                                   end
-                    fun pushArgsToStack(nil) = nil
-                      | pushArgsToStack(h::t) = [ADDI(SP, SP, ~4), SW(T0, 0, SP)]
-                in
-                    if (List.length(args) > 4) then
-                        let 
-                            val (res1, env1) = createArgList(List.take(args, 4), env)
+                    fun pushArgsToStack(nil, env1) = nil
+                      | pushArgsToStack(h::t, env1) = 
+                        let
+                            val (mRes, mEnv) = compileE(h, env1)
                         in
-                            (res1 @ [ADDI(SP, SP, ~16)] @ pushArgsToStack(List.drop(args, 4)), env1)
+                           mRes@pushArgsToStack(t, mEnv)
                         end
-                    else
-                        createArgList(args, env)
+                in
+                    ([ADDI(SP, SP, ~8)]@pushArgsToStack(args, env)@[ADDI(SP, SP, ~4), ADDI(T0, ZERO, List.length(args)), SW(T0, 0, SP)], env)
                 end
             val (resRes, envRes) = handleArgs(args, env)
         in
-            (JAL(id)::resRes, envRes)
+            (resRes@[JAL(id)], envRes)
+        end
+    | compileE(VAR_EXP(exp1), env) = 
+        let
+            val (res1, env1) = compileE(exp1, env)
+        in
+            (res1@[LW(T0, 0, SP), ADDI(T0, T0, 2), ADDI(T1, ZERO, 4), MULT(T0, T1), MFLO(T0), SUB(T0, FP, T0), LW(T0, 0, T0), SW(T0, 0, SP)], env1)
         end;
 
-fun compileS(EMPTY_STATEMENT) = [NOOP]
-  | compileS(WHILE_STATEMENT(expression, statement)) = [NOOP]
-  | compileS(IF_STATEMENT(expression, statement1, statement2)) = [NOOP]
-  | compileS(SEQUENCE_STATEMENT(statementList)) = [NOOP]
-  | compileS(RETURN_STATEMENT(expression)) = [NOOP]
-  | compileS(ASSIGNMENT_STATEMENT(id, expression)) = [NOOP]
-  | compileS(FUNCTION(id, args, statement)) = [LABEL(id)];
+fun compileS(IF_STATEMENT(expression, statement1, statement2), env, expEnv) =
+        let
+            val (resExp, expEnv1) = compileE(expression, expEnv)
+            val (ifCount) = env
+            val beginSta = [LW(T0, 0, SP), ADDI(SP, SP, 4), BEQ(T0, ZERO, "else" ^ Int.toString(ifCount))]
+            val midSta = [J("endif" ^ Int.toString(ifCount)), LABEL("else" ^ Int.toString(ifCount))]
+            val endSta = [LABEL("endif" ^ Int.toString(ifCount))]
+            val (resSta, staEnv, staExpEnv) = compileS(statement1, (ifCount+1), expEnv1)
+            val (resSta2, staEnv2, staExpEnv2) = compileS(statement2, staEnv, staExpEnv)
+        in
+            (resExp@beginSta@resSta@midSta@resSta2@endSta, staEnv2, staExpEnv2)
+        end
+  | compileS(RETURN_STATEMENT(expression), env, expEnv) = 
+        let
+            val (resExp, expEnv1) = compileE(expression, expEnv)
+        in
+            (resExp@[LW(T0, 0, FP), ADDI(RA, T0, 0), LW(T0, 0, SP), SW(T0, 0, FP), ADDI(SP, FP, 0), LW(T0, ~4, SP), ADDI(FP, T0, 0), JR(RA)], env, expEnv)
+        end
+  | compileS(PRINT_STATEMENT(expression), env, expEnv) = 
+        let
+            val (resExp, expEnv1) = compileE(expression, expEnv)
+        in
+            (resExp@[LW(T0, 0, SP), ADDI(SP, SP, 4), ADDI(V0, ZERO, 1), ADDI(A0, T0, 0), SYSCALL], env, expEnv1)
+        end
+  | compileS(FUNCTION(id, statement), env, expEnv) = 
+        let
+            val (resSta, staEnv, staExpEnv) = compileS(statement, env, expEnv)
+        in
+            ([LABEL(id), LW(T0, 0, SP), ADDI(T0, T0, 2), ADDI(T1, ZERO, 4), MULT(T0, T1), MFLO(T0), ADD(T0, T0, SP), SW(FP, ~4, T0), ADDI(FP, T0, 0), SW(RA, 0, T0)]@resSta, staEnv, staExpEnv)
+        end
+  | compileS(PROGRAM(nil), env, expEnv) = ([LABEL("HALT")], env, expEnv) 
+  | compileS(PROGRAM(h::t), env, expEnv) = 
+        let
+            val (resSta, staEnv, staExpEnv) = compileS(h, env, expEnv)
+            val (resSta2, staEnv2, staExpEnv2)  = compileS(PROGRAM(t), staEnv, staExpEnv)
+        in
+            (resSta@resSta2, staEnv2, staExpEnv2)
+        end
+  | compileS(SET_STATEMENT(exp), env, expEnv) = 
+        let
+            val (res, expEnv1) = compileE(exp, expEnv)
+        in
+            (res, env, expEnv1)
+        end
+  | compileS(HALT_STATEMENT, env, expEnv) =
+        ([J("HALT")], env, expEnv);
+    
+fun compile(program) = 
+    let
+        fun replaceChar(nil) = nil
+          | replaceChar(#"~"::t) = #"-"::replaceChar(t)
+          | replaceChar(h::t) = h::replaceChar(t)
+        val (value,_,_) = compileS(program, 0, 0)
+    in
+        String.implode (replaceChar (List.concat (List.map String.explode ((List.map) (convertInstructionToString) (value)))))
+    end;
 
 
 
+(*
+Function Stack, before jump:
+NUM_ARGS <- Stack Pointer
+ARGS (0 to n)
+EMPTY/place for fp
+EMPTY/place for ra   <- Frame Pointer
+
+
+FUNCTION STACK, before return:
+
+OLD_FRAMEPOINTER
+VALUE
+
+Function Stack, after return:
+VALUE
+
+@[LW(T0, 4, SP), ADDI(FP, T0, 0), LW(T0, 0, SP), ADDI(SP, SP, 4), SW(T0, 0, SP)]
 
 
 
-
-(*)
-main:
-put on stackframe
-do statement instruction here
-
-
-setup stackframe
-do statement
-RETURN_STATEMENT*)
+*)
 
 
 
@@ -341,20 +396,151 @@ Control.Print.printDepth := 100000;
 Control.Print.printLength := 10000;
 Control.Print.stringDepth := 10000;
 
-print (convertInstructionToString(ADD(S1, ZERO, S7)));
-val test1 = FUNCTION("main", ["as"], RETURN_STATEMENT(CALL_EXP("main", [INTEGER_EXP(1)])));
-compileS(test1);
-
-
-
-
-
 val testExp = MUL_EXP(MUL_EXP(ADD_EXP(INTEGER_EXP(10), ADD_EXP(INTEGER_EXP(1), ADD_EXP(INTEGER_EXP(100), ADD_EXP(INTEGER_EXP(2), INTEGER_EXP(3))))), ADD_EXP(INTEGER_EXP(5), INTEGER_EXP(8))), INTEGER_EXP(7));
-
 val adderExp = XOR_EXP(XOR_EXP(INTEGER_EXP(1), INTEGER_EXP(1)), INTEGER_EXP(0));
+val prog = IF_STATEMENT(INTEGER_EXP(1), PRINT_STATEMENT(INTEGER_EXP(1)), PRINT_STATEMENT(INTEGER_EXP(0)));
 
-val (x,_) = compileE(adderExp, 0);
-print (concat (map convertInstructionToString (x)));
+val fact10 =
+PROGRAM([
+PRINT_STATEMENT(
+    CALL_EXP("fact",
+        [INTEGER_EXP(10)]
+    )
+),
+HALT_STATEMENT,
+FUNCTION("fact",
+        IF_STATEMENT(
+            EQ_EXP(
+                VAR_EXP(INTEGER_EXP(0)),
+                INTEGER_EXP(0)
+                ),
+            RETURN_STATEMENT(INTEGER_EXP(1)),
+            RETURN_STATEMENT(MUL_EXP(
+                CALL_EXP("fact",
+                    [SUB_EXP(VAR_EXP(INTEGER_EXP(0)),
+                            INTEGER_EXP(1))]),
+                VAR_EXP(INTEGER_EXP(0)))
+            )
+        )
+    )
+]);
+
+val tryIf =
+PROGRAM([
+PRINT_STATEMENT(
+    CALL_EXP("fact",
+        [INTEGER_EXP(0)]
+    )
+),
+HALT_STATEMENT,
+FUNCTION("fact",
+        IF_STATEMENT(
+            EQ_EXP(
+                TO_BOOL_EXP(VAR_EXP(INTEGER_EXP(0))),
+                TO_BOOL_EXP(INTEGER_EXP(0))
+                ),
+            RETURN_STATEMENT(INTEGER_EXP(1)),
+            RETURN_STATEMENT(INTEGER_EXP(2))
+            )
+        )
+]);
+
+val simple =
+PROGRAM([
+PRINT_STATEMENT(
+    CALL_EXP("simple",
+        [INTEGER_EXP(3)]
+    )
+),
+HALT_STATEMENT,
+FUNCTION("simple",
+        RETURN_STATEMENT(VAR_EXP(INTEGER_EXP(0))))
+]);
+
+val simpleAdd =
+PROGRAM([
+PRINT_STATEMENT(
+    CALL_EXP("simpleAdd",
+        [INTEGER_EXP(9), INTEGER_EXP(12)]
+    )
+),
+HALT_STATEMENT,
+FUNCTION("simpleAdd",
+        RETURN_STATEMENT(ADD_EXP(VAR_EXP(INTEGER_EXP(0)), VAR_EXP(INTEGER_EXP(1)))))
+]);
 
 
+val simpleAdd2 =
+PROGRAM([
+PRINT_STATEMENT(
+    CALL_EXP("simpleAdd",
+        [INTEGER_EXP(12), INTEGER_EXP(12)]
+    )
+),
+HALT_STATEMENT,
+FUNCTION("simpleAdd",
+        IF_STATEMENT(
+            EQ_EXP(
+                VAR_EXP(INTEGER_EXP(0)),
+                VAR_EXP(INTEGER_EXP(1))
+                ),
+            RETURN_STATEMENT(MUL_EXP(VAR_EXP(INTEGER_EXP(0)), VAR_EXP(INTEGER_EXP(1)))),
+            RETURN_STATEMENT(ADD_EXP(VAR_EXP(INTEGER_EXP(0)), VAR_EXP(INTEGER_EXP(1))))
+            )
+        )        
+]);
 
+
+val sum =
+PROGRAM([
+PRINT_STATEMENT(
+    CALL_EXP("sum",
+        [INTEGER_EXP(10)]
+    )
+),
+HALT_STATEMENT,
+FUNCTION("sum",
+        IF_STATEMENT(
+            EQ_EXP(
+                VAR_EXP(INTEGER_EXP(0)),
+                INTEGER_EXP(0)
+                ),
+            RETURN_STATEMENT(INTEGER_EXP(100)),
+            RETURN_STATEMENT(ADD_EXP(
+                CALL_EXP("sum",
+                    [SUB_EXP(VAR_EXP(INTEGER_EXP(0)),
+                            INTEGER_EXP(1))]),
+                INTEGER_EXP(1))
+            )
+        )
+    )
+]);
+
+val fact =
+PROGRAM([
+PRINT_STATEMENT(
+    CALL_EXP("fact",
+        [INTEGER_EXP(10)]
+    )
+),
+HALT_STATEMENT,
+FUNCTION("fact",
+        IF_STATEMENT(
+            EQ_EXP(
+                VAR_EXP(INTEGER_EXP(0)),
+                INTEGER_EXP(0)
+                ),
+            RETURN_STATEMENT(INTEGER_EXP(1)),
+            RETURN_STATEMENT(MUL_EXP(
+                CALL_EXP("fact",
+                    [SUB_EXP(VAR_EXP(INTEGER_EXP(0)),
+                            INTEGER_EXP(1))]),
+                VAR_EXP(INTEGER_EXP(0)))
+            )
+        )
+    )
+]);
+
+print (compile(fact));
+
+(*print (compile(tryIf));*)
